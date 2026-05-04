@@ -804,7 +804,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--cr);color:var(--gd);min-h
 <div class="toast" id="toast"></div>
 
 <script>
-var API_URL = 'https://script.google.com/macros/s/AKfycbze5UIWM3spsxbfqIZkJuzh9Zwp6_f7KnNWjXvy1eJSpkVNSrsLi5f72JWZPrxJD3hNAQ/exec';
+var API_URL = 'https://script.google.com/macros/s/AKfycbyC4yUDwPbegdP6Xw2JTBBTofmYE5SyQ1ePUUSak9kpQHJtXoyICz_cT-AsqnVxQyQkvw/exec';
 var APRS    = ['Ale C','Victor','Alexa'];
 var cu = null, fotoMain = null, galArr = [], editIdx = -1, fichasCache = [];
 
@@ -925,22 +925,99 @@ function loadFichas(cb){
   });
 }
 
-function saveFicha(ficha,cb){
+function uploadPhoto(base64Data, fileName, cb){
+  // Upload single photo to Drive via Apps Script
+  if(!base64Data || base64Data.indexOf('base64')<0){ cb(base64Data); return; }
+  apiPost({action:'uploadPhoto', photoData:base64Data, fileName:fileName}, function(d,err){
+    if(d && d.ok && d.url) cb(d.url);
+    else cb(base64Data); // fallback: keep base64 if upload fails
+  });
+}
+
+function saveFicha(ficha, cb){
+  // 1. Save locally first (instant feedback)
   var local=getLocal();
   var found=false;
   for(var i=0;i<local.length;i++){
     if(String(local[i].id)===String(ficha.id)){local[i]=ficha;found=true;break;}
   }
   if(!found) local.unshift(ficha);
-  setLocal(local); fichasCache=local; cb(true);
+  setLocal(local); fichasCache=local;
+  cb(true); // User sees success immediately
+
+  // 2. Upload photos to Drive separately, then save ficha
   showLoading(true);
-  apiPost({action:'save',ficha:ficha},function(d,err){
-    showLoading(false);
-    if(d&&d.ok){
-      if(d.fotoMain) fotoMain=d.fotoMain;
-      if(d.galeria&&d.galeria.length) galArr=d.galeria;
+  toast('Subiendo fotos...', '#2B2BA8');
+
+  var fichaToSave = JSON.parse(JSON.stringify(ficha));
+  var totalPhotos = 0;
+  var donePhotos  = 0;
+
+  // Count photos that need uploading
+  if(fichaToSave.fotoMain && fichaToSave.fotoMain.indexOf('base64')>-1) totalPhotos++;
+  if(fichaToSave.galeria){
+    for(var g=0;g<fichaToSave.galeria.length;g++){
+      if(fichaToSave.galeria[g] && fichaToSave.galeria[g].indexOf('base64')>-1) totalPhotos++;
     }
-  });
+  }
+
+  function checkDone(){
+    donePhotos++;
+    if(donePhotos >= totalPhotos) finalizeSave();
+  }
+
+  function finalizeSave(){
+    showLoading(true);
+    // Save ficha with Drive URLs
+    apiPost({action:'save', ficha:fichaToSave}, function(d,err){
+      showLoading(false);
+      if(d&&d.ok){
+        // Update local cache with Drive URLs
+        if(d.fotoMain){ fotoMain=d.fotoMain; fichaToSave.fotoMain=d.fotoMain; }
+        if(d.galeria&&d.galeria.length){ galArr=d.galeria; fichaToSave.galeria=d.galeria; }
+        // Update local storage with Drive URLs
+        var local2=getLocal();
+        for(var i=0;i<local2.length;i++){
+          if(String(local2[i].id)===String(fichaToSave.id)){
+            local2[i]=fichaToSave; break;
+          }
+        }
+        setLocal(local2); fichasCache=local2;
+        toast('Ficha guardada correctamente');
+      } else {
+        toast('Guardado local ok (sin conexion a servidor)', '#B87000');
+      }
+    });
+  }
+
+  if(totalPhotos === 0){
+    // No photos to upload, save directly
+    finalizeSave();
+    return;
+  }
+
+  // Upload main photo
+  if(fichaToSave.fotoMain && fichaToSave.fotoMain.indexOf('base64')>-1){
+    uploadPhoto(fichaToSave.fotoMain, 'main_'+ficha.id+'.jpg', function(url){
+      fichaToSave.fotoMain = url;
+      fotoMain = url;
+      checkDone();
+    });
+  }
+
+  // Upload gallery photos
+  if(fichaToSave.galeria){
+    for(var g=0;g<fichaToSave.galeria.length;g++){
+      if(fichaToSave.galeria[g] && fichaToSave.galeria[g].indexOf('base64')>-1){
+        (function(idx){
+          uploadPhoto(fichaToSave.galeria[idx], 'gal_'+ficha.id+'_'+idx+'.jpg', function(url){
+            fichaToSave.galeria[idx] = url;
+            checkDone();
+          });
+        })(g);
+      }
+    }
+  }
 }
 
 function deleteFicha(id,cb){
@@ -1611,16 +1688,27 @@ function collectData(){
       '</div>'+
       '</body></html>';
 
-    // Abrir en nueva pestana o descargar
-    var blob = new Blob([html], {type:'text/html;charset=utf-8'});
-    var url  = URL.createObjectURL(blob);
-    var a    = document.createElement('a');
-    a.href   = url;
-    a.download = nom.replace(/[^a-zA-Z0-9]/g,'_')+'_ficha.html';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+    // Abrir PDF en nueva pestana
+    try {
+      var win = window.open('', '_blank');
+      if(win) {
+        win.document.write(html);
+        win.document.close();
+      } else {
+        // Fallback: download as file
+        var blob = new Blob([html], {type:'text/html;charset=utf-8'});
+        var url  = URL.createObjectURL(blob);
+        var a    = document.createElement('a');
+        a.href   = url;
+        a.download = nom.replace(/[^a-zA-Z0-9]/g,'_')+'_ficha.html';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+      }
+    } catch(e) {
+      alert('Para descargar el PDF: habilita ventanas emergentes para este sitio en tu navegador.');
+    }
   }
 
 function updPend(){
