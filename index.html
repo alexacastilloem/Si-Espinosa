@@ -257,13 +257,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--cr);color:var(--gd);min-h
   <div class="lh">Iniciar sesion</div>
   <div class="fld">
     <label>Correo corporativo</label>
-    <input type="email" id="le" placeholder="nombre@siespinosa.mx">
+    <input type="email" id="le" placeholder="nombre@siespinosa.mx" onkeydown="if(event.key==='Enter')document.getElementById('lbtn').click()">
   </div>
   <div class="fld">
     <label>Contrasena</label>
-    <input type="password" id="lp" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
+    <input type="password" id="lp" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" onkeydown="if(event.key==='Enter')document.getElementById('lbtn').click()">
   </div>
-  <button class="lbtn" id="lbtn">Acceder al sistema</button>
+  <button class="lbtn" id="lbtn" onclick="(function(){var e=document.getElementById('le').value.trim().toLowerCase();var p=document.getElementById('lp').value;if(!e||!p){document.getElementById('lerr').style.display='block';document.getElementById('lerr').textContent='Ingresa correo y contrasena.';return;}var u=null;var UL=[{email:'asesora1@siespinosa.mx',pass:'1234',nombre:'Ana Garcia',rol:'asesora'},{email:'asesora2@siespinosa.mx',pass:'1234',nombre:'Maria Lopez',rol:'asesora'},{email:'alec@siespinosa.mx',pass:'alec',nombre:'Ale C',rol:'aprobador'},{email:'victor@siespinosa.mx',pass:'victor',nombre:'Victor',rol:'aprobador'},{email:'alexa@siespinosa.mx',pass:'alexa',nombre:'Alexa',rol:'aprobador'},{email:'admin@siespinosa.mx',pass:'admin',nombre:'Administrador',rol:'admin'}];for(var i=0;i<UL.length;i++){if(UL[i].email===e&&UL[i].pass===p){u=UL[i];break;}}if(!u){document.getElementById('lerr').style.display='block';document.getElementById('lerr').textContent='Credenciales incorrectas.';return;}document.getElementById('ls').style.display='none';document.getElementById('app').style.display='block';document.getElementById('uname').textContent=u.nombre;document.getElementById('lerr').style.display='none';})()">Acceder al sistema</button>
   <div class="lerr" id="lerr">Credenciales incorrectas. Intenta de nuevo.</div>
 </div>
 </div>
@@ -1603,9 +1603,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--cr);color:var(--gd);min-h
     toast('URL guardada');
   }
 
-  window.addEventListener('DOMContentLoaded',function(){
+  // Run immediately AND on DOMContentLoaded as fallback
+  function runInit(){
     initLogos();
-  });
+    updPend();
+  }
+  if(document.readyState==='loading'){
+    window.addEventListener('DOMContentLoaded', runInit);
+  } else {
+    runInit();
+  }
 
 })();
 </script>
