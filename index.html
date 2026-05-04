@@ -1294,198 +1294,333 @@ function collectData(){
     showTab('nueva'); window.scrollTo(0,0); toast('Ficha cargada para edicion');
   }
 
-  // ── PDF PREMIUM ──
+  // ── PDF ──
   function exportPDF(idx){
-    var f = fichasCache[idx]; if(!f) return;
-    var nom    = f.prop?f.prop.nombre||'Propiedad':'Propiedad';
-    var dir    = f.prop?(f.prop.calle||'')+(f.prop.next?' #'+f.prop.next:''):'';
-    var col    = f.prop?f.prop.colonia||'':'';
-    var cp     = f.prop?f.prop.cp||'':'';
-    var mun    = f.prop?f.prop.municipio||'':'';
-    var edo    = f.prop?f.prop.estado||'Puebla':'Puebla';
-    var op     = f.enc?f.enc.operacion||'':'';
-    var asesor = f.enc?f.enc.asesor||f.asesor||'':f.asesor||'';
-    var folio  = f.enc?f.enc.folio||'':'';
-    var desc   = f.prop?f.prop.desc||'':'';
-    var pventa = f.prop?f.prop.pventa||'':'';
-    var prenta = f.prop?f.prop.prenta||'':'';
-    var mant   = f.prop?f.prop.mant||'':'';
-    var gravamen= f.prop?f.prop.gravamen||'':'';
-    var rac    = f.prop?f.prop.rac||'':'';
+    var f = fichasCache[idx];
+    if(!f){ alert('No se encontro la ficha'); return; }
 
-    // Foto principal - convert Drive URL to thumbnail
-    var fotoMainSrc = f.fotoMain||'';
-    if(fotoMainSrc.indexOf('drive.google.com')>-1){
-      var fm=fotoMainSrc.match(/id=([^&]+)/);
-      if(fm) fotoMainSrc='https://drive.google.com/thumbnail?id='+fm[1]+'&sz=w800';
+    // Datos basicos
+    var nom    = f.prop ? f.prop.nombre||'Propiedad' : 'Propiedad';
+    var desc   = f.prop ? f.prop.desc||'' : '';
+    var pventa = f.prop ? f.prop.pventa||'' : '';
+    var prenta = f.prop ? f.prop.prenta||'' : '';
+    var mant   = f.prop ? f.prop.mant||'' : '';
+    var calle  = f.prop ? f.prop.calle||'' : '';
+    var next   = f.prop ? f.prop.next||'' : '';
+    var colonia= f.prop ? f.prop.colonia||'' : '';
+    var cp     = f.prop ? f.prop.cp||'' : '';
+    var mun    = f.prop ? f.prop.municipio||'' : '';
+    var edo    = f.prop ? f.prop.estado||'Puebla' : 'Puebla';
+    var rac    = f.prop ? f.prop.rac||'' : '';
+    var gravamen= f.prop ? f.prop.gravamen||'' : '';
+    var entre1 = f.prop ? f.prop.entre1||'' : '';
+    var entre2 = f.prop ? f.prop.entre2||'' : '';
+    var op     = f.enc  ? f.enc.operacion||'' : '';
+    var promo  = f.enc  ? f.enc.promo||'' : '';
+    var folio  = f.enc  ? f.enc.folio||'' : '';
+    var asesor = f.enc  ? f.enc.asesor||f.asesor||'' : f.asesor||'';
+    var fecha  = f.fecha||'';
+
+    // Tipo de propiedad
+    var tipos = [];
+    if(f.enc && f.enc.tipo){
+      var tm = {terreno:'Terreno',depto:'Departamento',casa:'Casa',plazacom:'Plaza Comercial',
+                oficina:'Oficina',edificio:'Edificio',local:'Local',bodega:'Bodega'};
+      for(var k in tm){ if(f.enc.tipo[k]) tipos.push(tm[k]); }
+    }
+    var tipoStr = tipos.length ? tipos[0] : 'Propiedad';
+
+    // Determinar template por tipo
+    var isResid   = tipos.some(function(t){ return t==='Casa'||t==='Departamento'; });
+    var isIndustr = tipos.some(function(t){ return t==='Terreno'||t==='Bodega'; });
+    var isComercial = !isResid && !isIndustr;
+
+    // Colores por tipo
+    var accentColor = isResid ? '#2B2BA8' : isIndustr ? '#4A4A00' : '#1A1A7A';
+    var accentLight = isResid ? '#EEEEF8' : isIndustr ? '#F4F5D0' : '#E8E8F8';
+    var badgeBg     = isResid ? '#B8BB00' : isIndustr ? '#B8BB00' : '#B8BB00';
+
+    // Zona
+    var zonas = [];
+    if(f.prop && f.prop.zona){
+      var zmap = {centro:'Centro',norte:'Norte',norote:'Nor-Ote',oriente:'Oriente',
+        surote:'Sur-Ote',sur:'Sur',surpte:'Sur-Pte',poniente:'Poniente',norpte:'Nor-Pte',
+        angelopolis:'Angelopolis',cholula:'Cholula',cuautlan:'Cuautlan',foraneos:'Foraneos'};
+      for(var k in zmap){ if(f.prop.zona[k]) zonas.push(zmap[k]); }
+      if(f.prop.zona.otro && f.prop.zona.otrotxt) zonas.push(f.prop.zona.otrotxt);
+    }
+
+    // Foto
+    var fotoSrc = f.fotoMain||'';
+    if(fotoSrc.indexOf('drive.google.com')>-1){
+      var fm=fotoSrc.match(/id=([^&]+)/);
+      if(fm) fotoSrc='https://drive.google.com/thumbnail?id='+fm[1]+'&sz=w900';
     }
 
     // Galeria
-    var galeriaHTML='';
-    if(f.galeria&&f.galeria.length){
-      galeriaHTML='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;">';
+    var galHTML = '';
+    if(f.galeria && f.galeria.length){
+      galHTML = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;">';
       f.galeria.forEach(function(img){
-        var gsrc=img;
-        if(gsrc.indexOf('drive.google.com')>-1){var gm=gsrc.match(/id=([^&]+)/);if(gm)gsrc='https://drive.google.com/thumbnail?id='+gm[1]+'&sz=w400';}
-        galeriaHTML+='<img src="'+gsrc+'" style="width:100%;height:160px;object-fit:cover;border-radius:3px;border:1px solid #E8E5DE;">';
+        var gs = img;
+        if(gs.indexOf('drive.google.com')>-1){var gm=gs.match(/id=([^&]+)/);if(gm)gs='https://drive.google.com/thumbnail?id='+gm[1]+'&sz=w400';}
+        galHTML += '<img src="'+gs+'" style="width:100%;height:150px;object-fit:cover;border-radius:4px;">';
       });
-      galeriaHTML+='</div>';
+      galHTML += '</div>';
     }
 
-    // Zona
-    var zonas=[];
-    if(f.prop&&f.prop.zona){var z=f.prop.zona;['centro','norte','norote','oriente','surote','sur','surpte','poniente','norpte','angelopolis','cholula','cuautlan','foraneos'].forEach(function(k){if(z[k])zonas.push(k.charAt(0).toUpperCase()+k.slice(1));});if(z.otro&&z.otrotxt)zonas.push(z.otrotxt);}
-
-    // Tipo propiedad
-    var tipos=[];
-    if(f.enc&&f.enc.tipo){var t=f.enc.tipo;['terreno','depto','casa','plazacom','oficina','edificio','local','bodega'].forEach(function(k){if(t[k])tipos.push(k.charAt(0).toUpperCase()+k.slice(1));});}
-
-    // Docs renta
-    var rdmap={esc:'Escritura',uso:'Uso de suelo',cnaa:'C. no Adeudo Agua',pla:'Planos',ide:'Identificacion',rfc:'Cedula RFC',act:'Acta Constitutiva',rep:'Id. Representante',pre:'Predial',luz:'C. no Adeudo Luz',ava:'Avaluo',mat:'Acta Matrimonio',dom:'Comp. Domicilio',pod:'Poder Representante'};
-    var rdocs=[]; if(f.renta&&f.renta.docs){for(var k in f.renta.docs){if(f.renta.docs[k]&&rdmap[k])rdocs.push(rdmap[k]);}}
-    var vdocs=[]; if(f.venta&&f.venta.docs){for(var k in f.venta.docs){if(f.venta.docs[k]&&rdmap[k])vdocs.push(rdmap[k]);}}
-    var rc=f.renta?f.renta.cond||{}:{};
-
     // Aprobaciones
-    var aprHTML=''; var apr=f.aprobaciones||{};
+    var aprHTML = '';
+    var apr = f.aprobaciones||{};
     ['Ale C','Victor','Alexa'].forEach(function(a){
       var v=apr[a];
-      var color=v===true?'#145A30':v===false?'#7A1010':'#999';
-      var txt=v===true?'✓ Aprobado':v===false?'✗ Rechazado':'Pendiente';
-      aprHTML+='<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #F0EDE8;font-size:13px;">'+
+      var col=v===true?'#145A30':v===false?'#7A1010':'#888';
+      var txt=v===true?'Aprobado':v===false?'Rechazado':'Pendiente';
+      aprHTML += '<div style="display:flex;justify-content:space-between;align-items:center;'+
+        'padding:10px 14px;border-bottom:1px solid #F0EDE8;font-size:13px;">'+
         '<span style="font-weight:600;color:#2B2BA8;">'+a+'</span>'+
-        '<span style="font-weight:700;color:'+color+';">'+txt+'</span></div>';
+        '<span style="font-weight:700;color:'+col+';background:'+(v===true?'#D4EDE0':v===false?'#F0D4D4':'#F0EDE8')+
+        ';padding:3px 10px;border-radius:20px;font-size:11px;">'+txt+'</span></div>';
     });
 
-    var opColor = op.toLowerCase().indexOf('venta')>-1&&op.toLowerCase().indexOf('renta')>-1?'#2B2BA8':op.toLowerCase().indexOf('venta')>-1?'#1A1A7A':'#8A8C00';
-    var opBg    = op.toLowerCase().indexOf('venta')>-1&&op.toLowerCase().indexOf('renta')>-1?'#EEEEF8':op.toLowerCase().indexOf('venta')>-1?'#EEEEF8':'#F4F5D0';
+    // Docs
+    var rdmap = {esc:'Escritura',uso:'Uso de suelo',cnaa:'C. no Adeudo Agua',pla:'Planos',
+      ide:'Identificacion',rfc:'Cedula RFC',act:'Acta Constitutiva',rep:'Id. Representante',
+      pre:'Predial',luz:'C. no Adeudo Luz',ava:'Avaluo',mat:'Acta Matrimonio',
+      dom:'Comp. Domicilio',pod:'Poder Representante'};
+    var rdocs=[], vdocs=[];
+    if(f.renta&&f.renta.docs){for(var k in f.renta.docs){if(f.renta.docs[k]&&rdmap[k])rdocs.push(rdmap[k]);}}
+    if(f.venta&&f.venta.docs){for(var k in f.venta.docs){if(f.venta.docs[k]&&rdmap[k])vdocs.push(rdmap[k]);}}
+    var rc = f.renta ? f.renta.cond||{} : {};
 
-    var html = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'+
-    '<title>'+nom+' — Ficha Tecnica SI Espinosa</title>'+
-    '<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,500&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">'+
-    '<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:"DM Sans",sans-serif;background:#fff;color:#2A2520;}'+
-    '@media print{.no-print{display:none!important;}body{print-color-adjust:exact;-webkit-print-color-adjust:exact;}}'+
-    '</style></head><body>'+
+    // Campos adicionales por tipo
+    var extraHTML = '';
+    if(isResid && f.casas){
+      var ca=f.casas;
+      extraHTML = '<div style="margin-bottom:44px;">'+secHead('03','Caracteristicas del Inmueble')+
+        '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px;background:#E8E5DE;border-radius:4px;overflow:hidden;">';
+      var campos = [['Recamaras',ca.rec],['Banos',ca.banos],['M2 Terreno',ca.m2t],['M2 Construido',ca.m2c],
+        ['Niveles',ca.niv],['Estacionamiento',ca.estac],['Edad',ca.edad+' anos'],['Gas',ca.gas]];
+      campos.forEach(function(f2){
+        if(f2[1]) extraHTML+=fiField(f2[0],f2[1]);
+      });
+      extraHTML += '</div>';
+      // Caracteristicas checkboxes
+      var chars=[];
+      if(ca.car){var cm={chimenea:'Chimenea',jacuzzi:'Jacuzzi',alberca:'Alberca',jardin:'Jardin',
+        gimnasio:'Gimnasio',vigilancia:'Vigilancia',amueblado:'Amueblado',esquina:'Esquina'};
+        for(var k in cm){if(ca.car[k])chars.push(cm[k]);}}
+      if(chars.length) extraHTML+='<p style="font-size:13px;color:#555;margin-top:14px;line-height:2;">'+chars.join(' &bull; ')+'</p>';
+      extraHTML += '</div>';
+    }
+    if(isIndustr && f.terrenos && f.enc && f.enc.tipo && f.enc.tipo.terreno){
+      var te=f.terrenos;
+      extraHTML = '<div style="margin-bottom:44px;">'+secHead('03','Datos del Terreno')+
+        '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px;background:#E8E5DE;border-radius:4px;overflow:hidden;">';
+      if(te.m2)  extraHTML+=fiField('M2 Terreno',te.m2);
+      if(te.mf)  extraHTML+=fiField('Metros Frente',te.mf);
+      if(te.mfo) extraHTML+=fiField('Metros Fondo',te.mfo);
+      if(te.tipo) extraHTML+=fiField('Tipo',te.tipo);
+      var svcs=[];
+      if(te.agua)     svcs.push('Agua');
+      if(te.luz)      svcs.push('Luz');
+      if(te.drenaje)  svcs.push('Drenaje');
+      if(te.pavimento)svcs.push('Pavimento');
+      if(svcs.length) extraHTML+=fiField('Servicios',svcs.join(', '));
+      extraHTML += '</div></div>';
+    }
+    if(isIndustr && f.bodegas && f.enc && f.enc.tipo && f.enc.tipo.bodega){
+      var bo=f.bodegas;
+      extraHTML = '<div style="margin-bottom:44px;">'+secHead('03','Datos de la Bodega')+
+        '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px;background:#E8E5DE;border-radius:4px;overflow:hidden;">';
+      if(bo.m2t)    extraHTML+=fiField('M2 Terreno',bo.m2t);
+      if(bo.area)   extraHTML+=fiField('Area Bodega',bo.area);
+      if(bo.altura) extraHTML+=fiField('Altura Libre',bo.altura);
+      if(bo.carga)  extraHTML+=fiField('Cap. Carga',bo.carga);
+      if(bo.maniob) extraHTML+=fiField('Area Maniobras',bo.maniob);
+      if(bo.material) extraHTML+=fiField('Material',bo.material);
+      extraHTML += '</div></div>';
+    }
+    if(isComercial && f.locales){
+      var lo=f.locales;
+      extraHTML = '<div style="margin-bottom:44px;">'+secHead('03','Datos del Local / Plaza')+
+        '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px;background:#E8E5DE;border-radius:4px;overflow:hidden;">';
+      if(lo.m2c)     extraHTML+=fiField('M2 Construido',lo.m2c);
+      if(lo.m2t)     extraHTML+=fiField('M2 Terreno',lo.m2t);
+      if(lo.mf)      extraHTML+=fiField('Metros Frente',lo.mf);
+      if(lo.mfo)     extraHTML+=fiField('Metros Fondo',lo.mfo);
+      if(lo.altura)  extraHTML+=fiField('Altura Libre',lo.altura);
+      if(lo.niv)     extraHTML+=fiField('Niveles',lo.niv);
+      if(lo.estvis)  extraHTML+=fiField('Est. Visitas',lo.estvis);
+      if(lo.estpriv) extraHTML+=fiField('Est. Privado',lo.estpriv);
+      if(lo.banos)   extraHTML+=fiField('Banos',lo.banos);
+      if(lo.oficinas)extraHTML+=fiField('Num. Oficinas',lo.oficinas);
+      if(lo.cisterna)extraHTML+=fiField('Cisterna',lo.cisterna);
+      if(lo.gas)     extraHTML+=fiField('Gas',lo.gas);
+      extraHTML += '</div></div>';
+    }
 
-    // PRINT BUTTON
-    '<div class="no-print" style="position:fixed;top:16px;right:16px;z-index:999;">'+
-    '<button onclick="window.print()" style="background:#2B2BA8;color:#fff;border:none;padding:11px 24px;font-family:DM Sans,sans-serif;font-size:12px;font-weight:700;cursor:pointer;border-radius:3px;letter-spacing:1px;text-transform:uppercase;box-shadow:0 4px 16px rgba(43,43,168,.3);">'+
-    '⬇ Descargar PDF</button></div>'+
+    // Helper functions inline
+    function secHead(num, title){
+      return '<div style="display:flex;align-items:center;gap:14px;margin-bottom:24px;">'+
+        '<span style="font-family:Georgia,serif;font-size:60px;font-weight:700;color:#E8E5DE;line-height:1;letter-spacing:-3px;">'+num+'</span>'+
+        '<span style="font-family:Georgia,serif;font-size:26px;font-weight:600;color:'+accentColor+';">'+title+'</span>'+
+        '<div style="flex:1;height:1px;background:linear-gradient(to right,#B8BB00,transparent);"></div></div>';
+    }
+    function fiField(label, val){
+      return '<div style="background:#fff;padding:14px 16px;">'+
+        '<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#999;margin-bottom:4px;">'+label+'</div>'+
+        '<div style="font-family:Georgia,serif;font-size:17px;font-weight:600;color:'+accentColor+';">'+val+'</div></div>';
+    }
 
-    // HERO
-    '<div style="background:linear-gradient(145deg,#1A1A7A 0%,#2B2BA8 55%,#3535C0 100%);display:grid;grid-template-columns:1fr 1fr;min-height:320px;position:relative;">'+
-    '<div style="position:absolute;inset:0;background:radial-gradient(ellipse at 80% 30%,rgba(184,187,0,.18),transparent 55%);"></div>'+
-    '<div style="padding:44px 48px;position:relative;z-index:1;display:flex;flex-direction:column;justify-content:space-between;">'+
-    '<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAACwEAAAWJCAYAAACc7/rfAAAACX..." style="height:38px;object-fit:contain;width:fit-content;">'+
-    '<div>'+
-    '<div style="display:inline-flex;align-items:center;gap:7px;background:rgba(184,187,0,.18);border:1px solid rgba(184,187,0,.4);color:#B8BB00;font-size:10px;letter-spacing:3px;text-transform:uppercase;padding:6px 14px;border-radius:2px;font-weight:700;margin-bottom:16px;">'+
-    (op?'&#9679; '+op:'&#9679; Disponible')+'</div>'+
-    '<div style="font-size:10px;letter-spacing:4px;text-transform:uppercase;color:rgba(255,255,255,.45);margin-bottom:8px;">'+(tipos.length?tipos.join(' · '):'Propiedad Comercial')+'</div>'+
-    '<div style="font-family:Cormorant Garamond,serif;font-size:48px;font-weight:600;color:#fff;line-height:1.05;margin-bottom:6px;">'+nom+'</div>'+
-    (dir?'<div style="font-size:13px;color:rgba(255,255,255,.5);margin-top:6px;">📍 '+dir+(col?', '+col:'')+'</div>':'')+
-    '</div></div>'+
-    // Hero right - foto
-    '<div style="position:relative;overflow:hidden;min-height:320px;background:linear-gradient(135deg,#0E0E40,#1A1A7A);">'+
-    (fotoMainSrc?'<img src="'+fotoMainSrc+'" style="width:100%;height:100%;object-fit:cover;opacity:.85;" crossorigin="anonymous">':
-    '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:48px;opacity:.15;">🏢</div>')+
-    '<div style="position:absolute;inset:0;background:linear-gradient(to right,#1A1A7A 0%,transparent 30%);"></div>'+
-    '</div></div>'+
+    // ── BUILD HTML ──
+    var html =
+      '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'+
+      '<title>'+nom+' — Ficha Tecnica SI Espinosa</title>'+
+      '<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,500&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">'+
+      '<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:"DM Sans",sans-serif;background:#fff;}'+
+      '@media print{.no-print{display:none!important;}body{print-color-adjust:exact;-webkit-print-color-adjust:exact;}}</style>'+
+      '</head><body>'+
 
-    // METRICAS BAR
-    '<div style="display:grid;grid-template-columns:repeat(4,1fr);background:#0E0E2A;border-top:3px solid #B8BB00;">'+
-    (pventa?'<div style="padding:20px 24px;border-right:1px solid rgba(255,255,255,.06);"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#666;margin-bottom:4px;">Precio Venta</div><div style="font-family:Cormorant Garamond,serif;font-size:26px;font-weight:700;color:#fff;">'+pventa+'</div></div>':'')+
-    (prenta?'<div style="padding:20px 24px;border-right:1px solid rgba(255,255,255,.06);"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#666;margin-bottom:4px;">Precio Renta</div><div style="font-family:Cormorant Garamond,serif;font-size:26px;font-weight:700;color:#fff;">'+prenta+'</div></div>':'')+
-    (mant?'<div style="padding:20px 24px;border-right:1px solid rgba(255,255,255,.06);"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#666;margin-bottom:4px;">Mantenimiento</div><div style="font-family:Cormorant Garamond,serif;font-size:26px;font-weight:700;color:#fff;">'+mant+'</div></div>':'')+
-    '<div style="padding:20px 24px;"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#666;margin-bottom:4px;">Asesor</div><div style="font-family:Cormorant Garamond,serif;font-size:20px;font-weight:700;color:#B8BB00;">'+asesor+'</div></div>'+
-    '</div>'+
+      // PRINT BUTTON
+      '<div class="no-print" style="position:fixed;top:16px;right:16px;z-index:999;display:flex;gap:8px;">'+
+      '<button onclick="window.print()" style="background:#2B2BA8;color:#fff;border:none;padding:11px 22px;'+
+      'font-family:DM Sans,sans-serif;font-size:12px;font-weight:700;cursor:pointer;border-radius:3px;'+
+      'letter-spacing:1px;text-transform:uppercase;box-shadow:0 4px 16px rgba(43,43,168,.3);">'+
+      'Imprimir / PDF</button></div>'+
 
-    // BODY
-    '<div style="max-width:1000px;margin:0 auto;padding:56px 40px 80px;">'+
+      // HERO
+      '<div style="background:linear-gradient(145deg,#1A1A7A 0%,#2B2BA8 55%,#3535C0 100%);'+
+      'display:grid;grid-template-columns:1fr 1fr;min-height:300px;position:relative;">'+
+      '<div style="position:absolute;inset:0;background:radial-gradient(ellipse at 80% 30%,rgba(184,187,0,.2),transparent 55%);"></div>'+
 
-    // DESCRIPCION
-    (desc?
-    '<div style="margin-bottom:52px;">'+
-    '<div style="display:flex;align-items:center;gap:14px;margin-bottom:28px;">'+
-    '<span style="font-family:Cormorant Garamond,serif;font-size:64px;font-weight:700;color:#E8E5DE;line-height:1;letter-spacing:-3px;">01</span>'+
-    '<span style="font-family:Cormorant Garamond,serif;font-size:28px;font-weight:600;color:#2B2BA8;">La Oportunidad</span>'+
-    '<div style="flex:1;height:1px;background:linear-gradient(to right,#B8BB00,transparent);"></div></div>'+
-    '<p style="font-size:15px;line-height:1.9;color:#444;max-width:700px;">'+desc+'</p></div>':'') +
+      // Hero left
+      '<div style="padding:40px 44px;position:relative;z-index:1;display:flex;flex-direction:column;justify-content:space-between;">'+
+      '<img src="data:image/png;base64,'+LB+'" style="height:36px;object-fit:contain;width:fit-content;" alt="SI Espinosa">'+
+      '<div>'+
+      '<div style="display:inline-flex;align-items:center;gap:7px;background:rgba(184,187,0,.18);border:1px solid rgba(184,187,0,.4);'+
+      'color:#B8BB00;font-size:10px;letter-spacing:3px;text-transform:uppercase;padding:6px 14px;border-radius:2px;font-weight:700;margin-bottom:14px;">'+
+      (op?op+' &bull; '+tipoStr:tipoStr)+'</div>'+
+      '<div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.45);margin-bottom:8px;">'+
+      'Ficha Tecnica &bull; Folio: '+(folio||'—')+'</div>'+
+      '<div style="font-family:Cormorant Garamond,serif;font-size:44px;font-weight:600;color:#fff;line-height:1.05;margin-bottom:6px;">'+nom+'</div>'+
+      (calle?'<div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:6px;">&#128205; '+calle+(next?' #'+next:'')+
+      (colonia?', '+colonia:'')+(mun?', '+mun:'')+'</div>':'')+
+      '</div></div>'+
 
-    // DATOS PROPIEDAD
-    '<div style="margin-bottom:52px;">'+
-    '<div style="display:flex;align-items:center;gap:14px;margin-bottom:28px;">'+
-    '<span style="font-family:Cormorant Garamond,serif;font-size:64px;font-weight:700;color:#E8E5DE;line-height:1;letter-spacing:-3px;">'+( desc?'02':'01')+'</span>'+
-    '<span style="font-family:Cormorant Garamond,serif;font-size:28px;font-weight:600;color:#2B2BA8;">Ficha Tecnica</span>'+
-    '<div style="flex:1;height:1px;background:linear-gradient(to right,#B8BB00,transparent);"></div></div>'+
-    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;background:#E8E5DE;border-radius:4px;overflow:hidden;">'+
-    '<div style="background:#fff;padding:16px 18px;grid-column:span 3;"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#999;margin-bottom:4px;">Nombre de la propiedad</div><div style="font-family:Cormorant Garamond,serif;font-size:22px;font-weight:600;color:#1A1A7A;">'+nom+'</div></div>'+
-    (tipos.length?'<div style="background:#fff;padding:16px 18px;"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#999;margin-bottom:4px;">Tipo</div><div style="font-family:Cormorant Garamond,serif;font-size:17px;font-weight:600;color:#2B2BA8;">'+tipos.join(', ')+'</div></div>':'')+
-    (op?'<div style="background:#fff;padding:16px 18px;"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#999;margin-bottom:4px;">Operacion</div><div style="background:'+opBg+';color:'+opColor+';padding:4px 12px;border-radius:2px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;display:inline-block;">'+op+'</div></div>':'')+
-    (folio?'<div style="background:#fff;padding:16px 18px;"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#999;margin-bottom:4px;">Folio</div><div style="font-family:Cormorant Garamond,serif;font-size:17px;font-weight:600;color:#2B2BA8;">'+folio+'</div></div>':'')+
-    (pventa?'<div style="background:#fff;padding:16px 18px;"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#999;margin-bottom:4px;">Precio Venta</div><div style="font-family:Cormorant Garamond,serif;font-size:22px;font-weight:700;color:#0E0E2A;">'+pventa+'</div></div>':'')+
-    (prenta?'<div style="background:#fff;padding:16px 18px;"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#999;margin-bottom:4px;">Precio Renta</div><div style="font-family:Cormorant Garamond,serif;font-size:22px;font-weight:700;color:#0E0E2A;">'+prenta+'</div></div>':'')+
-    (mant?'<div style="background:#fff;padding:16px 18px;"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#999;margin-bottom:4px;">Mantenimiento</div><div style="font-family:Cormorant Garamond,serif;font-size:22px;font-weight:700;color:#0E0E2A;">'+mant+'</div></div>':'')+
-    (dir?'<div style="background:#fff;padding:16px 18px;grid-column:span 2;"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#999;margin-bottom:4px;">Direccion</div><div style="font-family:Cormorant Garamond,serif;font-size:17px;font-weight:600;color:#2B2BA8;">'+dir+(col?', '+col:'')+(cp?' C.P. '+cp:'')+'</div></div>':'')+
-    (mun?'<div style="background:#fff;padding:16px 18px;"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#999;margin-bottom:4px;">Municipio / Estado</div><div style="font-family:Cormorant Garamond,serif;font-size:17px;font-weight:600;color:#2B2BA8;">'+mun+(edo?', '+edo:'')+'</div></div>':'')+
-    (zonas.length?'<div style="background:#fff;padding:16px 18px;"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#999;margin-bottom:4px;">Zona</div><div style="font-family:Cormorant Garamond,serif;font-size:17px;font-weight:600;color:#2B2BA8;">'+zonas.join(' · ')+'</div></div>':'')+
-    (rac&&rac!=='NA'?'<div style="background:#fff;padding:16px 18px;"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#999;margin-bottom:4px;">Regreso a Casa</div><div style="font-family:Cormorant Garamond,serif;font-size:17px;font-weight:600;color:#2B2BA8;">'+rac+'</div></div>':'')+
-    '</div></div>'+
+      // Hero right - foto
+      '<div style="position:relative;overflow:hidden;background:linear-gradient(135deg,#0E0E40,#1A1A7A);">'+
+      (fotoSrc?'<img src="'+fotoSrc+'" style="width:100%;height:100%;object-fit:cover;opacity:.85;">':
+      '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:56px;opacity:.12;">&#127970;</div>')+
+      '<div style="position:absolute;inset:0;background:linear-gradient(to right,#1A1A7A,transparent 30%);"></div>'+
+      '</div></div>'+
 
-    // CONDICIONES RENTA
-    (rc.tpo||rc.dep||rc.rad?
-    '<div style="margin-bottom:52px;">'+
-    '<div style="display:flex;align-items:center;gap:14px;margin-bottom:28px;">'+
-    '<span style="font-family:Cormorant Garamond,serif;font-size:64px;font-weight:700;color:#E8E5DE;line-height:1;letter-spacing:-3px;">03</span>'+
-    '<span style="font-family:Cormorant Garamond,serif;font-size:28px;font-weight:600;color:#2B2BA8;">Condiciones de Renta</span>'+
-    '<div style="flex:1;height:1px;background:linear-gradient(to right,#B8BB00,transparent);"></div></div>'+
-    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">'+
-    (rc.tpo?'<div style="background:#1A1A7A;border-radius:3px;padding:24px 20px;position:relative;overflow:hidden;"><div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:#B8BB00;"></div><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#B8BB00;font-weight:700;margin-bottom:8px;">Tiempo</div><div style="font-family:Cormorant Garamond,serif;font-size:24px;font-weight:600;color:#fff;">'+rc.tpo+'</div></div>':'')+
-    (rc.dep?'<div style="background:#1A1A7A;border-radius:3px;padding:24px 20px;position:relative;overflow:hidden;"><div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:#B8BB00;"></div><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#B8BB00;font-weight:700;margin-bottom:8px;">Deposito</div><div style="font-family:Cormorant Garamond,serif;font-size:24px;font-weight:600;color:#fff;">'+rc.dep+'</div></div>':'')+
-    (rc.rad?'<div style="background:#1A1A7A;border-radius:3px;padding:24px 20px;position:relative;overflow:hidden;"><div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:#B8BB00;"></div><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#B8BB00;font-weight:700;margin-bottom:8px;">Renta Adelantada</div><div style="font-family:Cormorant Garamond,serif;font-size:24px;font-weight:600;color:#fff;">'+rc.rad+'</div></div>':'')+
-    '</div></div>':'') +
+      // METRICAS
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);background:#0E0E2A;border-top:3px solid #B8BB00;">'+
+      (pventa?'<div style="padding:18px 22px;border-right:1px solid rgba(255,255,255,.06);">'+
+        '<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#666;margin-bottom:3px;">Precio Venta</div>'+
+        '<div style="font-family:Cormorant Garamond,serif;font-size:26px;font-weight:700;color:#fff;">'+pventa+'</div></div>':'')+
+      (prenta?'<div style="padding:18px 22px;border-right:1px solid rgba(255,255,255,.06);">'+
+        '<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#666;margin-bottom:3px;">Precio Renta</div>'+
+        '<div style="font-family:Cormorant Garamond,serif;font-size:26px;font-weight:700;color:#fff;">'+prenta+'</div></div>':'')+
+      (mant?'<div style="padding:18px 22px;border-right:1px solid rgba(255,255,255,.06);">'+
+        '<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#666;margin-bottom:3px;">Mantenimiento</div>'+
+        '<div style="font-family:Cormorant Garamond,serif;font-size:26px;font-weight:700;color:#fff;">'+mant+'</div></div>':'')+
+      '<div style="padding:18px 22px;">'+
+        '<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#666;margin-bottom:3px;">Asesor</div>'+
+        '<div style="font-family:Cormorant Garamond,serif;font-size:20px;font-weight:700;color:#B8BB00;">'+asesor+'</div></div>'+
+      '</div>'+
 
-    // DOCUMENTOS
-    (rdocs.length?'<div style="margin-bottom:52px;"><div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;"><span style="font-family:Cormorant Garamond,serif;font-size:64px;font-weight:700;color:#E8E5DE;line-height:1;letter-spacing:-3px;">04</span><span style="font-family:Cormorant Garamond,serif;font-size:28px;font-weight:600;color:#2B2BA8;">Documentos Requeridos</span><div style="flex:1;height:1px;background:linear-gradient(to right,#B8BB00,transparent);"></div></div>'+
-    (rdocs.length?'<p style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#7A1818;margin-bottom:8px;">Renta</p><p style="font-size:13.5px;color:#555;line-height:1.9;">'+rdocs.join(' &bull; ')+'</p>':'')+
-    (vdocs.length?'<p style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#2B2BA8;margin-top:12px;margin-bottom:8px;">Venta</p><p style="font-size:13.5px;color:#555;line-height:1.9;">'+vdocs.join(' &bull; ')+'</p>':'')+
-    '</div>':'') +
+      // BODY
+      '<div style="max-width:980px;margin:0 auto;padding:52px 40px 80px;">'+
 
-    // GALERIA
-    (galeriaHTML?
-    '<div style="margin-bottom:52px;">'+
-    '<div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">'+
-    '<span style="font-family:Cormorant Garamond,serif;font-size:64px;font-weight:700;color:#E8E5DE;line-height:1;letter-spacing:-3px;">05</span>'+
-    '<span style="font-family:Cormorant Garamond,serif;font-size:28px;font-weight:600;color:#2B2BA8;">Galeria</span>'+
-    '<div style="flex:1;height:1px;background:linear-gradient(to right,#B8BB00,transparent);"></div></div>'+
-    galeriaHTML+'</div>':'') +
+      // 01 DESCRIPCION
+      (desc?
+        '<div style="margin-bottom:44px;">'+secHead('01','La Oportunidad')+
+        '<p style="font-size:15px;line-height:1.9;color:#444;max-width:680px;">'+desc+'</p></div>':'')+
 
-    // APROBACIONES
-    '<div style="margin-bottom:52px;">'+
-    '<div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">'+
-    '<span style="font-family:Cormorant Garamond,serif;font-size:64px;font-weight:700;color:#E8E5DE;line-height:1;letter-spacing:-3px;">06</span>'+
-    '<span style="font-family:Cormorant Garamond,serif;font-size:28px;font-weight:600;color:#2B2BA8;">Aprobaciones</span>'+
-    '<div style="flex:1;height:1px;background:linear-gradient(to right,#B8BB00,transparent);"></div></div>'+
-    '<div style="background:#fff;border:1px solid #E8E5DE;border-radius:4px;overflow:hidden;">'+aprHTML+'</div></div>'+
+      // 02 DATOS
+      '<div style="margin-bottom:44px;">'+secHead(desc?'02':'01','Ficha Tecnica')+
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;background:#E8E5DE;border-radius:4px;overflow:hidden;">'+
+      '<div style="background:#fff;padding:14px 16px;grid-column:span 3;">'+
+        '<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#999;margin-bottom:4px;">Nombre</div>'+
+        '<div style="font-family:Cormorant Garamond,serif;font-size:22px;font-weight:600;color:#1A1A7A;">'+nom+'</div></div>'+
+      (tipos.length?fiField('Tipo',tipos.join(', ')):'')+
+      (op?fiField('Operacion',op):'')+
+      (promo?fiField('Promocion',promo):'')+
+      (calle?fiField('Calle',calle+(next?' #'+next:'')):'')+
+      (entre1?fiField('Entre calles',entre1+' y '+entre2):'')+
+      (colonia?fiField('Colonia',colonia+(cp?' C.P. '+cp:'')):'')  +
+      (mun?fiField('Municipio / Estado',mun+(edo?', '+edo:'')):'')+
+      (zonas.length?fiField('Zona',zonas.join(' - ')):'')+
+      (rac&&rac!=='NA'?fiField('Regreso a Casa',rac):'')+
+      (gravamen&&gravamen!=='No'?fiField('Gravamen',gravamen):'')+
+      '</div></div>'+
 
-    // FIRMAS
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:48px;padding-top:32px;border-top:1px solid #E8E5DE;">'+
-    '<div><div style="border-bottom:2px solid #2B2BA8;height:56px;margin-bottom:8px;"></div><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#999;">Firma Asesor</div></div>'+
-    '<div><div style="border-bottom:2px solid #2B2BA8;height:56px;margin-bottom:8px;"></div><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#999;">Firma Cliente</div></div>'+
-    '</div>'+
+      // 03 EXTRA por tipo
+      extraHTML+
 
-    '</div>'+  // /body
+      // CONDICIONES RENTA
+      (rc.tpo||rc.dep||rc.rad?
+        '<div style="margin-bottom:44px;">'+secHead('04','Condiciones de Renta')+
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">'+
+        (rc.tpo?'<div style="background:#1A1A7A;border-radius:3px;padding:22px 18px;position:relative;overflow:hidden;">'+
+          '<div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:#B8BB00;"></div>'+
+          '<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#B8BB00;font-weight:700;margin-bottom:6px;">Tiempo</div>'+
+          '<div style="font-family:Cormorant Garamond,serif;font-size:22px;font-weight:600;color:#fff;">'+rc.tpo+'</div></div>':'')+
+        (rc.dep?'<div style="background:#1A1A7A;border-radius:3px;padding:22px 18px;position:relative;overflow:hidden;">'+
+          '<div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:#B8BB00;"></div>'+
+          '<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#B8BB00;font-weight:700;margin-bottom:6px;">Deposito</div>'+
+          '<div style="font-family:Cormorant Garamond,serif;font-size:22px;font-weight:600;color:#fff;">'+rc.dep+'</div></div>':'')+
+        (rc.rad?'<div style="background:#1A1A7A;border-radius:3px;padding:22px 18px;position:relative;overflow:hidden;">'+
+          '<div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:#B8BB00;"></div>'+
+          '<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#B8BB00;font-weight:700;margin-bottom:6px;">Renta Adelantada</div>'+
+          '<div style="font-family:Cormorant Garamond,serif;font-size:22px;font-weight:600;color:#fff;">'+rc.rad+'</div></div>':'')+
+        '</div></div>':'') +
 
-    // FOOTER
-    '<div style="background:#1A1A7A;padding:28px 48px;display:flex;justify-content:space-between;align-items:center;">'+
-    '<div style="font-family:Cormorant Garamond,serif;font-size:18px;font-weight:600;color:#B8BB00;">Servicios Inmobiliarios Espinosa</div>'+
-    '<div style="font-size:12px;color:rgba(255,255,255,.6);">siespinosa.mx &nbsp;|&nbsp; (222) 524 81 33 &nbsp;|&nbsp; Torre Natyvo, Piso 25</div>'+
-    '</div>'+
+      // DOCUMENTOS
+      (rdocs.length||vdocs.length?
+        '<div style="margin-bottom:44px;">'+secHead('05','Documentos Requeridos')+
+        (rdocs.length?'<p style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#7A1818;margin-bottom:8px;">RENTA</p>'+
+          '<p style="font-size:13px;color:#555;line-height:2;margin-bottom:14px;">'+rdocs.join(' &bull; ')+'</p>':'')+
+        (vdocs.length?'<p style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#2B2BA8;margin-bottom:8px;">VENTA</p>'+
+          '<p style="font-size:13px;color:#555;line-height:2;">'+vdocs.join(' &bull; ')+'</p>':'')+
+        '</div>':'') +
 
-    '</body></html>';
+      // GALERIA
+      (galHTML?'<div style="margin-bottom:44px;">'+secHead('06','Galeria')+galHTML+'</div>':'')+
 
-    var win = window.open('','_blank','width=1100,height=800');
-    win.document.write(html);
-    win.document.close();
+      // APROBACIONES
+      '<div style="margin-bottom:44px;">'+secHead('07','Estado de Aprobaciones')+
+      '<div style="background:#fff;border:1px solid #E8E5DE;border-radius:4px;overflow:hidden;">'+aprHTML+'</div></div>'+
+
+      // FIRMAS
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:40px;padding-top:28px;border-top:1px solid #E8E5DE;">'+
+      '<div><div style="border-bottom:2px solid #2B2BA8;height:52px;margin-bottom:8px;"></div>'+
+      '<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#999;">Firma Asesor &nbsp;&bull;&nbsp; '+asesor+'</div></div>'+
+      '<div><div style="border-bottom:2px solid #2B2BA8;height:52px;margin-bottom:8px;"></div>'+
+      '<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#999;">Firma Cliente</div></div>'+
+      '</div>'+
+
+      '</div>'+ // end body
+
+      // FOOTER
+      '<div style="background:#1A1A7A;padding:24px 44px;display:flex;justify-content:space-between;align-items:center;">'+
+      '<div style="font-family:Cormorant Garamond,serif;font-size:18px;font-weight:600;color:#B8BB00;">Servicios Inmobiliarios Espinosa</div>'+
+      '<div style="font-size:11px;color:rgba(255,255,255,.55);">siespinosa.mx &nbsp;|&nbsp; (222) 524 81 33 &nbsp;|&nbsp; Torre Natyvo, Piso 25</div>'+
+      '</div>'+
+      '</body></html>';
+
+    // Abrir en nueva pestana o descargar
+    var blob = new Blob([html], {type:'text/html;charset=utf-8'});
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    a.href   = url;
+    a.download = nom.replace(/[^a-zA-Z0-9]/g,'_')+'_ficha.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
   }
 
 function updPend(){
