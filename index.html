@@ -803,7 +803,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--cr);color:var(--gd);min-h
   </div>
   <div class="ff" style="margin-bottom:16px;">
     <label>URL de tu Google Apps Script</label>
-    <input type="text" id="api-url-input" placeholder="https://script.google.com/macros/s/AKfycbzYzqV3-VaymPNH9plZdXR1Wb_41L5uA5zXVt5DbrRwctAHg0vN_6SNKiovEIey296xNQ/exec">
+    <input type="text" id="api-url-input" placeholder="https://script.google.com/macros/s/AKfycbwUlrl7iWTzIm38DfLsMQZkt-YAseZjuMk6vD-MKdiAURdF09ZtY5bRHpvMc2o_VwCr/exec">
   </div>
   <button class="bp" id="btn-save-url">Guardar y conectar</button>
   <p id="config-status" style="margin-top:12px;font-size:13px;color:var(--ac);display:none;">Conectado correctamente</p>
@@ -815,7 +815,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--cr);color:var(--gd);min-h
 <script>
 (function() {
 
-  var API_URL = 'https://script.google.com/macros/s/AKfycbzYzqV3-VaymPNH9plZdXR1Wb_41L5uA5zXVt5DbrRwctAHg0vN_6SNKiovEIey296xNQ/exec';
+  var API_URL = 'https://script.google.com/macros/s/AKfycbwUlrl7iWTzIm38DfLsMQZkt-YAseZjuMk6vD-MKdiAURdF09ZtY5bRHpvMc2o_VwCr/exec';
 
   // ── Logos from data tags ──
   function initLogos() {
@@ -847,48 +847,27 @@ body{font-family:'DM Sans',sans-serif;background:var(--cr);color:var(--gd);min-h
   function showLoading(show){ var e=$('loading-bar'); if(e) e.style.display=show?'block':'none'; }
 
   // ── API ──
-  // GET via script tag injection (bypasses CORS for local files)
-  var _cbCount = 0;
+  // GET - funciona desde GitHub Pages sin problemas de CORS
   function api(params, cb){
-    var cbName = '_gsCallback' + (++_cbCount);
-    params.callback = cbName;
     var url = API_URL+'?';
     var parts=[];
     for(var k in params) parts.push(encodeURIComponent(k)+'='+encodeURIComponent(params[k]));
     url += parts.join('&');
-    var script = document.createElement('script');
-    var timer = setTimeout(function(){
-      cb(null,'Timeout - sin respuesta del servidor');
-      delete window[cbName];
-      if(script.parentNode) script.parentNode.removeChild(script);
-    }, 15000);
-    window[cbName] = function(data){
-      clearTimeout(timer);
-      delete window[cbName];
-      if(script.parentNode) script.parentNode.removeChild(script);
-      cb(data, null);
-    };
-    script.src = url;
-    script.onerror = function(){
-      clearTimeout(timer);
-      delete window[cbName];
-      cb(null,'Error de conexion');
-    };
-    document.head.appendChild(script);
+    fetch(url)
+      .then(function(r){ return r.json(); })
+      .then(function(d){ cb(d,null); })
+      .catch(function(e){ cb(null,e.toString()); });
   }
 
-  // POST para save con fotos - usa fetch con redirect manual
+  // POST - para save con fotos en base64
   function apiPost(body, cb){
     fetch(API_URL, {
       method:'POST',
       body: JSON.stringify(body),
       headers:{'Content-Type':'text/plain'}
     })
-      .then(function(r){return r.text();})
-      .then(function(t){
-        try{ cb(JSON.parse(t),null); }
-        catch(e){ cb(null,'Respuesta invalida: '+t.substring(0,100)); }
-      })
+      .then(function(r){ return r.json(); })
+      .then(function(d){ cb(d,null); })
       .catch(function(e){ cb(null,e.toString()); });
   }
 
