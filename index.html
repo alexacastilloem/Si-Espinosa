@@ -804,6 +804,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--cr);color:var(--gd);min-h
 <div class="toast" id="toast"></div>
 
 <script>
+var LB = (function(){
+  var img = document.querySelector('.tblogo img');
+  if(img && img.src && img.src.indexOf('base64')>-1){
+    return img.src.replace('data:image/png;base64,','');
+  }
+  return '';
+})();
 var API_URL = 'https://script.google.com/macros/s/AKfycbyC4yUDwPbegdP6Xw2JTBBTofmYE5SyQ1ePUUSak9kpQHJtXoyICz_cT-AsqnVxQyQkvw/exec';
 var APRS    = ['Ale C','Victor','Alexa'];
 var cu = null, fotoMain = null, galArr = [], editIdx = -1, fichasCache = [];
