@@ -804,14 +804,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--cr);color:var(--gd);min-h
 <div class="toast" id="toast"></div>
 
 <script>
-var LB = (function(){
-  var img = document.querySelector('.tblogo img');
-  if(img && img.src && img.src.indexOf('base64')>-1){
-    return img.src.replace('data:image/png;base64,','');
-  }
-  return '';
-})();
-var API_URL = 'https://script.google.com/macros/s/AKfycbyC4yUDwPbegdP6Xw2JTBBTofmYE5SyQ1ePUUSak9kpQHJtXoyICz_cT-AsqnVxQyQkvw/exec';
+var LB = '';
+var API_URL = 'https://script.google.com/macros/s/AKfycbwrGFqvL5mplFX4NHPCUwyMMHOJKN8CEDaUXInzhb-wItJjrJVWV-IDqu1369uphRwxAw/exec';
 var APRS    = ['Ale C','Victor','Alexa'];
 var cu = null, fotoMain = null, galArr = [], editIdx = -1, fichasCache = [];
 
@@ -1718,6 +1712,65 @@ function collectData(){
     }
   }
 
+function renderPend(){
+  var el = document.getElementById('plist');
+  if(!el) return;
+  var APRS = ['Ale C','Victor','Alexa'];
+  var pends = [];
+  for(var i=0;i<fichasCache.length;i++){
+    if(fichasCache[i].status==='pendiente') pends.push(fichasCache[i]);
+  }
+  if(!pends.length){
+    el.innerHTML='<div class="empty"><div class="ei">&#9989;</div><p>No hay fichas pendientes de aprobacion</p></div>';
+    return;
+  }
+  var html='';
+  for(var p=0;p<pends.length;p++){
+    var f=pends[p];
+    var apr=f.aprobaciones||{};
+    var nA=0, rech=false;
+    for(var k in apr){if(apr[k]===true)nA++;if(apr[k]===false)rech=true;}
+    var op=f.enc?f.enc.operacion||'':'';
+    var nom=f.prop?f.prop.nombre||'Sin nombre':'Sin nombre';
+    var dir=f.prop?(f.prop.calle||'')+(f.prop.colonia?', '+f.prop.colonia:''):'';
+    var asesor=f.enc?f.enc.asesor||f.asesor||'':f.asesor||'';
+    var st=rech?'Rechazada':nA===3?'Aprobada':'Pendiente ('+nA+'/3)';
+    var sc=rech?'psb-r':nA===3?'psb-a':'psb-p';
+    var pcls=op.toLowerCase().indexOf('venta')>-1?'pc2-v':'pc2-r';
+    var fsrc=f.fotoMain||'';
+    if(fsrc.indexOf('drive.google.com')>-1){
+      var pm=fsrc.match(/id=([^&]+)/);
+      if(pm) fsrc='https://drive.google.com/thumbnail?id='+pm[1]+'&sz=w200';
+    }
+    html+='<div class="pendcard"><div class="ph2">';
+    html+='<div class="pfotosm">'+(fsrc?'<img src="'+fsrc+'" alt="">':'<div class="nfsm">&#127970;</div>')+'</div>';
+    html+='<div class="pinfo"><div class="pnombr">'+nom+'</div>';
+    html+='<div class="pdi">'+dir+'</div>';
+    html+='<div class="pmetas"><span class="pc2 '+pcls+'">'+op+'</span>';
+    html+='<span class="pc2 pc2-a">'+asesor+'</span></div></div>';
+    html+='<span class="pstatbadge '+sc+'">'+st+'</span></div>';
+    html+='<div class="aprobaciones">';
+    for(var a=0;a<APRS.length;a++){
+      var ap=APRS[a], val=apr[ap];
+      var isApr=cu&&(cu.nombre===ap||cu.rol==='admin');
+      var nc=val===true?'apnom na':val===false?'apnom nr':'apnom';
+      var cont='';
+      if(val===true)       cont='<div class="apstat aps-a">&#10003; Aprobado</div>';
+      else if(val===false) cont='<div class="apstat aps-r">&#10007; Rechazado</div>';
+      else if(isApr){
+        cont='<div class="apbtns">'+
+          '<button class="apbtn ab-a" data-apr="'+f.id+'|'+ap+'|1">&#10003; Aprobar</button>'+
+          '<button class="apbtn ab-r" data-apr="'+f.id+'|'+ap+'|0">&#10007; Rechazar</button>'+
+          '</div>';
+      } else cont='<div class="apstat aps-p">En espera</div>';
+      html+='<div class="apbloque"><div class="'+nc+'">'+ap+'</div>'+cont+'</div>';
+    }
+    html+='</div></div>';
+  }
+  el.innerHTML=html;
+}
+
+
 function updPend(){
   var n=0;
   for(var i=0;i<fichasCache.length;i++){if(fichasCache[i].status==='pendiente')n++;}
@@ -1726,6 +1779,11 @@ function updPend(){
 
 var _su=localStorage.getItem('sie_api_url');
 if(_su){API_URL=_su; var _ai=$('api-url-input'); if(_ai)_ai.value=_su;}
+// Get logo blanco from topbar for PDF
+var _lbimg = document.querySelector('.tblogo img');
+if(_lbimg && _lbimg.src && _lbimg.src.indexOf('base64')>-1){
+  LB = _lbimg.src.replace('data:image/png;base64,','');
+}
 updPend();
 </script>
 </body>
